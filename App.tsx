@@ -1,11 +1,42 @@
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, {useState, useEffect} from 'react';
+import { StyleSheet, Text, View, Button } from 'react-native';
+import * as Notifications from 'expo-notifications';
 
 export default function App() {
+  let [counter, setCounter] = useState(0)
+
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
+
+  useEffect(() => {
+    Notifications.setBadgeCountAsync(counter).then(() => console.log('>>set badge done'));
+  }, [counter])
+
+  let increase = () => setCounter(counter + 1);
+
+  let showNotif = () => {
+    Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Counter",
+        body: "You should expect the badge to increase",
+      },
+      trigger: {
+        seconds: 1,
+      }
+    }).catch((e) => console.error('>>notifications', e));
+  }
+
   return (
     <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
+      <Text>Counter: {counter}</Text>
+      <Button title="Increase counter" onPress={increase} />
+      <Button title="Show Notification" onPress={showNotif} />
       <StatusBar style="auto" />
     </View>
   );
