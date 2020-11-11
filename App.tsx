@@ -2,6 +2,54 @@ import { StatusBar } from 'expo-status-bar';
 import React, {useState, useEffect} from 'react';
 import { StyleSheet, Text, View, Button } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import * as BackgroundFetch from 'expo-background-fetch';
+import * as TaskManager from 'expo-task-manager';
+
+TaskManager.defineTask('counterBadge', ({data, error}) => {
+  if (error) {
+    console.error('>> error defining task', error);
+    return;
+  }
+  console.log('>> running task');
+  (async () => {
+    let notifCount = (await Notifications.getPresentedNotificationsAsync()).length;
+    console.log('>>notifCount', notifCount);
+    Notifications.setBadgeCountAsync(notifCount).then(() => console.log('>>set badge done'));
+    Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Counter",
+        body: "You should expect the badge to increase",
+      },
+      trigger: {
+        seconds: 1,
+      }
+    }).catch((e) => console.error('>>notifications', e));
+  })();
+});
+
+function registerTask() {
+  console.log('>> start to get background task status');
+  BackgroundFetch.getStatusAsync().then((status) => {
+    console.log('>>getting background task status');
+    switch (status) {
+      case BackgroundFetch.Status.Restricted:
+      case BackgroundFetch.Status.Denied:
+        console.log('>> background task is', status);
+        return;
+      default:
+        console.log('>> background task is AVAILABLE');
+        break;
+    }
+
+    console.log('>> registering task');
+    BackgroundFetch.registerTaskAsync('counterBadge', {
+      minimumInterval: 5,
+      stopOnTerminate: false,
+    })
+      .then(() => console.log('>> task registered'))
+      .catch(e => console.error('>> failed to register task', e));
+  }).catch(e => console.error('>>error getting background task status', e));
+}
 
 export default function App() {
   let [counter, setCounter] = useState(0)
@@ -15,8 +63,9 @@ export default function App() {
   });
 
   useEffect(() => {
-    Notifications.setBadgeCountAsync(counter).then(() => console.log('>>set badge done'));
-  }, [counter])
+    console.log('>> registering');
+    registerTask();
+  }, [])
 
   let increase = () => setCounter(counter + 1);
 
