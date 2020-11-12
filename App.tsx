@@ -13,17 +13,17 @@ TaskManager.defineTask('counterBadge', ({data, error}) => {
   console.log('>> running task');
   (async () => {
     let notifCount = (await Notifications.getPresentedNotificationsAsync()).length;
-    console.log('>>notifCount', notifCount);
+    console.log('>> counting available notif', notifCount);
     Notifications.setBadgeCountAsync(notifCount).then(() => console.log('>>set badge done'));
-    Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Counter",
-        body: "You should expect the badge to increase",
-      },
-      trigger: {
-        seconds: 1,
-      }
-    }).catch((e) => console.error('>>notifications', e));
+    // Notifications.scheduleNotificationAsync({
+      // content: {
+        // title: "Counter",
+        // body: "You should expect the badge to increase",
+      // },
+      // trigger: {
+        // seconds: 1,
+      // }
+    // }).catch((e) => console.error('>>notifications', e));
   })();
 });
 
@@ -53,19 +53,33 @@ function registerTask() {
 
 export default function App() {
   let [counter, setCounter] = useState(0)
+  let [token, setToken] = useState('')
 
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
       shouldPlaySound: false,
-      shouldSetBadge: false,
+      shouldSetBadge: true,
     }),
   });
 
   useEffect(() => {
     console.log('>> registering');
     registerTask();
-  }, [])
+    console.log('>> registering push notif token');
+    registerForPushNotifications().then(setToken);
+  }, []);
+
+  useEffect(() => {
+    let listener = Notifications.addNotificationReceivedListener(_notification => {
+      console.log('>> new push notif received while on foreground');
+      let newCounter = counter + 1;
+      console.log('>> change badge counter to', newCounter);
+      Notifications.setBadgeCountAsync(newCounter);
+      setCounter(newCounter);
+    });
+    return () => listener.remove();
+  }, []);
 
   let increase = () => setCounter(counter + 1);
 
@@ -79,6 +93,18 @@ export default function App() {
         seconds: 1,
       }
     }).catch((e) => console.error('>>notifications', e));
+  }
+
+  let registerForPushNotifications = async () => {
+    let token = (await Notifications.getExpoPushTokenAsync()).data;
+    console.log('>> push notif token is', token);
+    Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+    return token;
   }
 
   return (
